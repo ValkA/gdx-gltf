@@ -739,26 +739,11 @@ public class PBRShader extends DefaultShader
 		}
 		
 		if(u_texCoord0Transform >= 0){
-			if(transformTexture[0] != null){
-				PBRTextureAttribute attribute = transformTexture[0];
-				textureTransform.idt();
-				textureTransform.translate(attribute.offsetU, attribute.offsetV);
-				textureTransform.rotateRad(-attribute.rotationUV);
-				textureTransform.scale(attribute.scaleU, attribute.scaleV);
-			}else{
-				textureTransform.idt();
-			}
+			PBRCommon.setTextureTransform(textureTransform, transformTexture[0]);
 			program.setUniformMatrix(u_texCoord0Transform, textureTransform);
 		}
 		if(u_texCoord1Transform >= 0){
-			if(transformTexture[1] != null){
-				PBRTextureAttribute attribute = transformTexture[1];
-				textureTransform.setToTranslation(attribute.offsetU, attribute.offsetV);
-				textureTransform.rotateRad(-attribute.rotationUV);
-				textureTransform.scale(attribute.scaleU, attribute.scaleV);
-			}else{
-				textureTransform.idt();
-			}
+			PBRCommon.setTextureTransform(textureTransform, transformTexture[1]);
 			program.setUniformMatrix(u_texCoord1Transform, textureTransform);
 		}
 	}

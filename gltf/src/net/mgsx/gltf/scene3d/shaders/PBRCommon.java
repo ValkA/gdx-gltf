@@ -6,8 +6,11 @@ import com.badlogic.gdx.Application.ApplicationType;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.math.Matrix3;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.GdxRuntimeException;
+
+import net.mgsx.gltf.scene3d.attributes.PBRTextureAttribute;
 
 public class PBRCommon {
 	public static final int MAX_MORPH_TARGETS = 8;
@@ -52,6 +55,17 @@ public class PBRCommon {
 		if(seamlessCubemapsShouldBeEnabled){
 			final int GL_TEXTURE_CUBE_MAP_SEAMLESS = 0x884F; // from GL32
 			Gdx.gl.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+		}
+	}
+	
+	public static void setTextureTransform(Matrix3 transform, PBRTextureAttribute attribute) {
+		if(attribute != null){
+			transform.idt();
+			transform.translate(attribute.offsetU, attribute.offsetV);
+			transform.rotateRad(-attribute.rotationUV);
+			transform.scale(attribute.scaleU, attribute.scaleV);
+		}else{
+			transform.idt();
 		}
 	}
 }
