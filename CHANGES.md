@@ -1,5 +1,9 @@
 # Changes history
 
+### 2.3.0
+
+* Added texture transform feature to depth shader to have consistent shadows.
+
 ### 2.2.1
 
 * Fix incorrect ambient lighting when no IBL is used, now it's modulates base color instead or adding to it.
