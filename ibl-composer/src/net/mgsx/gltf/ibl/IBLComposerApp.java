@@ -100,7 +100,7 @@ public class IBLComposerApp extends ApplicationAdapter
 		FileHandle folder = fileBase.parent();
 		String baseName = fileBase.nameWithoutExtension();
 		// save 6 files per level
-		Array<Pixmap> pixmaps = composer.getRadianceMapPixmaps(settings.radMapSize);
+		Array<Pixmap> pixmaps = composer.getRadianceMapPixmaps(settings.radMapSize, settings.radianceSampleCount, settings.rgbm);
 		int level = 0;
 		for(int i=0 ; i<pixmaps.size ; ){
 			for(int j=0 ; j<6 ; j++, i++){
@@ -119,7 +119,7 @@ public class IBLComposerApp extends ApplicationAdapter
 		FileHandle folder = fileBase.parent();
 		String baseName = fileBase.nameWithoutExtension();
 		// save 6 files
-		Array<Pixmap> pixmaps = composer.getIrradianceMapPixmaps(settings.irrMapSize);
+		Array<Pixmap> pixmaps = composer.getIrradianceMapPixmaps(settings.irrMapSize, settings.irradianceSampleDelta, settings.rgbm);
 		for(int i=0 ; i<pixmaps.size ; i++){
 			Pixmap pixmap = pixmaps.get(i);
 			FileHandle file = folder.child(baseName + "_" + EnvironmentUtil.FACE_NAMES_NEG_POS[i] + ".png");
@@ -134,7 +134,7 @@ public class IBLComposerApp extends ApplicationAdapter
 		FileHandle folder = fileBase.parent();
 		String baseName = fileBase.nameWithoutExtension();
 		// save 6 files
-		Array<Pixmap> pixmaps = composer.getEnvMapPixmaps(settings.envMapSize, settings.exposure);
+		Array<Pixmap> pixmaps = composer.getEnvMapPixmaps(settings.envMapSize, settings.exposure, settings.gamma, settings.rgbm);
 		for(int i=0 ; i<pixmaps.size ; i++){
 			Pixmap pixmap = pixmaps.get(i);
 			FileHandle file = folder.child(baseName + "_" + EnvironmentUtil.FACE_NAMES_NEG_POS[i] + ".png");
@@ -147,7 +147,7 @@ public class IBLComposerApp extends ApplicationAdapter
 	private void openHDR(FileHandle file) {
 		try {
 			IBLComposer composer = new IBLComposer();
-			composer.loadHDR(file);
+			composer.loadImage(file);
 			if(this.composer != null) this.composer.dispose();
 			this.composer = composer;
 			ui.setHDRInfo(composer.hdrHeader);
@@ -202,17 +202,17 @@ public class IBLComposerApp extends ApplicationAdapter
 			try{
 				if(!settings.envMapValid){
 					ui.envStats.setText(PerfUtil.millisecondsHuman(()->
-					preview.setEnvMap(composer.getEnvMap(settings.envMapSize, settings.exposure))
+					preview.setEnvMap(composer.getEnvMap(settings.envMapSize, settings.exposure, settings.gamma, settings.rgbm))
 							));
 				}
 				if(!settings.irradianceValid){
 					ui.irradianceStats.setText(PerfUtil.millisecondsHuman(()->
-					preview.setDiffuse(composer.getIrradianceMap(settings.irrMapSize))
+					preview.setDiffuse(composer.getIrradianceMap(settings.irrMapSize, settings.irradianceSampleDelta, settings.rgbm))
 							));
 				}
 				if(!settings.radianceValid){
 					ui.radianceStats.setText(PerfUtil.millisecondsHuman(()->
-					preview.setSpecular(composer.getRadianceMap(settings.radMapSize))
+					preview.setSpecular(composer.getRadianceMap(settings.radMapSize, settings.radianceSampleCount, settings.rgbm))
 							));
 				}
 				if(!settings.brdfMapValid){

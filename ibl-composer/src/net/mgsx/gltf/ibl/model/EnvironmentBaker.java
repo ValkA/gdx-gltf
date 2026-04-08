@@ -48,16 +48,16 @@ public class EnvironmentBaker implements Disposable {
 		return shader;
 	}
 	
-	public Cubemap getEnvMap(Texture hdrTexture, int size, float exposure){
+	public Cubemap getEnvMap(Texture hdrTexture, int size, float exposure, float gamma, boolean rgbm){
 		if(fboEnv != null && fboEnv.getWidth() != size){
 			fboEnv.dispose();
 			fboEnv = null;
 		}
 		if(fboEnv == null){
 			try{
-				fboEnv = new FrameBufferCubemap(Format.RGB888, size, size, false);
+				fboEnv = new FrameBufferCubemap(Format.RGBA8888, size, size, false);
 			}catch(IllegalStateException e){
-				fboEnv = new FrameBufferCubemap(Format.RGB888, 1, 1, false);
+				fboEnv = new FrameBufferCubemap(Format.RGBA8888, 1, 1, false);
 				throw new FrameBufferError(e);
 			}
 		}
@@ -67,6 +67,8 @@ public class EnvironmentBaker implements Disposable {
 			rectToCubeShader.bind();
 			rectToCubeShader.setUniformi("u_hdr", 0);
 			rectToCubeShader.setUniformf("u_exposure", exposure);
+			rectToCubeShader.setUniformf("u_gamma", gamma);
+			rectToCubeShader.setUniformi("u_rgbm", rgbm ? 1 : 0);
 			
 			Gdx.gl.glClearColor(0, 0, 0, 0);
 			Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -88,20 +90,23 @@ public class EnvironmentBaker implements Disposable {
 
 		ShapeRenderer shapes = rectToCubeRenderer;
 		shapes.begin(ShapeType.Filled);
+		Gdx.gl.glDisable(GL20.GL_BLEND);
 		shapes.rect(0, 0, 1, 1);
 		shapes.end();
 		
 	}
 
-	public Array<Pixmap> createEnvMapPixmaps(Texture hdrTexture, int size, float exposure) {
+	public Array<Pixmap> createEnvMapPixmaps(Texture hdrTexture, int size, float exposure, float gamma, boolean rgbm) {
 		Array<Pixmap> pixmaps = new Array<Pixmap>();
-		FrameBuffer fbo = new FrameBuffer(Format.RGB888, size, size, false);
+		FrameBuffer fbo = new FrameBuffer(Format.RGBA8888, size, size, false);
 		fbo.begin();
 		for(CubemapSide side : CubemapSide.values()){
 			hdrTexture.bind();
 			rectToCubeShader.bind();
 			rectToCubeShader.setUniformi("u_hdr", 0);
 			rectToCubeShader.setUniformf("u_exposure", exposure);
+			rectToCubeShader.setUniformf("u_gamma", gamma);
+			rectToCubeShader.setUniformi("u_rgbm", rgbm ? 1 : 0);
 			
 			Gdx.gl.glClearColor(0, 0, 0, 0);
 			Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);

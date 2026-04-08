@@ -32,6 +32,7 @@ public class IBLComposerUI extends Table
 {
 	private Image imgRaw;
 	private Slider exposureSlider;
+	private Slider gammaSlider;
 	private Label hdrInfo;
 	private SelectBox<MapSize> envSize;
 	private IBLSettings settings;
@@ -78,22 +79,39 @@ public class IBLComposerUI extends Table
 		Table menu = menuRight;
 		menu.add(title("HDRi")).colspan(2).row();
 		
-		menu.add(UI.change(new TextButton("Open HDR File", getSkin()), event->openHDR())).colspan(2).row();
+		menu.add(UI.change(new TextButton("Open HDR/EXR File", getSkin()), event->openHDR())).colspan(2).row();
 		menu.add(hdrInfo = new Label("", getSkin())).colspan(2).row();
 		menu.add(imgRaw = new Image()).maxWidth(200).maxHeight(100).colspan(2).row();
-		
-		menu.add("Exposure");
-		menu.add(exposureSlider = UI.change(new Slider(-1, 1, .01f, false, getSkin()), event->settings.setExposure(sliderToExposure(exposureSlider.getValue())))).row();
+
+		menu.add(UI.toggle(getSkin(), "RGBM Output", settings.rgbm, value->settings.setRGBM(value))).colspan(2).row();
+
+		menu.add("Exposure (EV)");
+		exposureSlider = new Slider(-10, 10, .25f, false, getSkin());
+		menu.add(createSliderWithText(exposureSlider, val -> settings.setExposure(sliderToExposureEV(val)))).row();
+
+		menu.add("Gamma");
+		gammaSlider = new Slider(-1, 1, .01f, false, getSkin());
+		menu.add(createSliderWithText(gammaSlider, val -> settings.setGamma(sliderToGamma(val)))).row();
 		
 		menu.add(title("Environment Map")).colspan(2).row();
 		
 		menu.add("Size");
 		menu.add(envSize = createSizeSelector()).row();
 		
-		menu.add(UI.change(new TextButton("Export", getSkin()), event->exportEnvMap())).colspan(2).row();
+		menu.add(UI.change(new TextButton("Generate", getSkin()), event->settings.invalidateEnvMap()));
+		menu.add(UI.change(new TextButton("Export", getSkin()), event->exportEnvMap())).row();
 		
 		menu.add(title("Irradiance Map")).colspan(2).row();
 		// TODO params : sampling
+		menu.add("Sample Delta");
+		com.badlogic.gdx.scenes.scene2d.ui.TextField irrDelta = new com.badlogic.gdx.scenes.scene2d.ui.TextField(String.valueOf(settings.irradianceSampleDelta), getSkin());
+		irrDelta.setTextFieldListener((textField, c) -> {
+			if(c == '\n' || c == '\r') {
+				try { settings.irradianceSampleDelta = Float.parseFloat(textField.getText()); } catch(NumberFormatException e) {}
+				textField.getStage().setKeyboardFocus(null);
+			}
+		});
+		menu.add(irrDelta).row();
 		menu.add("Size");
 		menu.add(irrSize = createSizeSelector()).row();
 
@@ -102,6 +120,15 @@ public class IBLComposerUI extends Table
 		
 		menu.add(title("Radiance Map")).colspan(2).row();
 		// TODO params : sampling ?
+		menu.add("Sample Count");
+		com.badlogic.gdx.scenes.scene2d.ui.TextField radSamples = new com.badlogic.gdx.scenes.scene2d.ui.TextField(String.valueOf(settings.radianceSampleCount), getSkin());
+		radSamples.setTextFieldListener((textField, c) -> {
+			if(c == '\n' || c == '\r') {
+				try { settings.radianceSampleCount = Integer.parseInt(textField.getText()); } catch(NumberFormatException e) {}
+				textField.getStage().setKeyboardFocus(null);
+			}
+		});
+		menu.add(radSamples).row();
 		menu.add("Size");
 		menu.add(radSize = createSizeSelector()).row();
 		menu.add(UI.change(new TextButton("Generate", getSkin()), event->settings.invalidateRadiance()));
@@ -130,6 +157,8 @@ public class IBLComposerUI extends Table
 			})).row();
 		
 		menu.add(title("Camera Preview")).colspan(2).row();
+		menu.add(UI.change(new TextButton("Load Model (.glb)", getSkin()), event->openModel())).row();
+		menu.add(UI.change(new TextButton("Default Sphere", getSkin()), event->settings.modelPath = null)).row();
 		
 		menu.add("FOV");
 		menu.add(fovSlider = UI.change(new Slider(0, 180, .01f, false, getSkin()), event->settings.previewFov = fovSlider.getValue())).row();
@@ -287,12 +316,46 @@ public class IBLComposerUI extends Table
 		brdfSize.setSelectedIndex(base - min - 1); // TODO ?
 	}
 	
-	private float sliderToExposure(float value) {
-		return (float)Math.pow(10, value);
+	private Table createSliderWithText(Slider slider, java.util.function.Consumer<Float> onChange) {
+		Table t = new Table(getSkin());
+		com.badlogic.gdx.scenes.scene2d.ui.TextField text = new com.badlogic.gdx.scenes.scene2d.ui.TextField("", getSkin());
+		
+		UI.change(slider, event -> {
+			float val = slider.getValue();
+			if(!text.hasKeyboardFocus()) text.setText(String.format(java.util.Locale.US, "%.2f", val));
+			onChange.accept(val);
+		});
+		
+		text.setTextFieldListener((textField, c) -> {
+			if(c == '\n' || c == '\r') {
+				try {
+					slider.setValue(Float.parseFloat(textField.getText()));
+				} catch (NumberFormatException e) {
+				}
+				textField.getStage().setKeyboardFocus(null);
+			}
+		});
+		text.setText(String.format(java.util.Locale.US, "%.2f", slider.getValue()));
+		
+		t.add(slider).expandX().fillX();
+		t.add(text).width(50).padLeft(5);
+		return t;
+	}
+
+	private float sliderToGamma(float value) {
+		return (float)Math.pow(10, -value);
+	}
+
+	private float sliderToExposureEV(float value) {
+		return (float)Math.pow(2.0, value);
 	}
 
 	private void openHDR() {
 		FileSelector.instance.open(file->settings.setHDRPath(file.path()));
+	}
+
+	private void openModel() {
+		FileSelector.instance.open(file->settings.modelPath = file.path());
 	}
 
 	public void setHDRImage(Texture hdrTexture) 

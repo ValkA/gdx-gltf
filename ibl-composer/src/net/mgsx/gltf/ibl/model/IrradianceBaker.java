@@ -43,8 +43,8 @@ public class IrradianceBaker implements Disposable {
 		boxMesh.dispose();
 	}
 	
-	public Cubemap createIrradiance(Cubemap cubemap, int size){
-		FrameBufferCubemap fbo = new FrameBufferCubemap(Format.RGB888, size, size, false){
+	public Cubemap createIrradiance(Cubemap cubemap, int size, float sampleDelta, boolean rgbm){
+		FrameBufferCubemap fbo = new FrameBufferCubemap(Format.RGBA8888, size, size, false){
 			@Override
 			protected void disposeColorTexture(Cubemap colorTexture) {
 			}
@@ -57,7 +57,7 @@ public class IrradianceBaker implements Disposable {
 			Gdx.gl.glClearColor(0, 0, 0, 0);
 			Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 			CubemapSide side = fbo.getSide();
-			renderSideIrradiance(side);
+			renderSideIrradiance(side, sampleDelta, rgbm);
 		}
 		fbo.end();
 		Cubemap map = fbo.getColorBufferTexture();
@@ -65,9 +65,9 @@ public class IrradianceBaker implements Disposable {
 		return map;
 	}
 	
-	public Array<Pixmap> createPixmaps(Cubemap cubemap, int size){
+	public Array<Pixmap> createPixmaps(Cubemap cubemap, int size, float sampleDelta, boolean rgbm){
 		Array<Pixmap> pixmaps = new Array<Pixmap>();
-		FrameBufferCubemap fbo = new FrameBufferCubemap(Format.RGB888, size, size, false);
+		FrameBufferCubemap fbo = new FrameBufferCubemap(Format.RGBA8888, size, size, false);
 
 		Gdx.gl.glEnable(GL20.GL_CULL_FACE);
 		fbo.begin();
@@ -76,7 +76,7 @@ public class IrradianceBaker implements Disposable {
 			Gdx.gl.glClearColor(0, 0, 0, 0);
 			Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 			CubemapSide side = fbo.getSide();
-			renderSideIrradiance(side);
+			renderSideIrradiance(side, sampleDelta, rgbm);
 			
 			pixmaps.add(ScreenUtils.getFrameBufferPixmap(0, 0, size, size));
 		}
@@ -85,7 +85,7 @@ public class IrradianceBaker implements Disposable {
 		return pixmaps;
 	}
 	
-	private void renderSideIrradiance(CubemapSide side) {
+	private void renderSideIrradiance(CubemapSide side, float sampleDelta, boolean rgbm) {
 		
 		ShaderProgram shader = irrandianceShader;
 		
@@ -96,8 +96,10 @@ public class IrradianceBaker implements Disposable {
 		matrix.setToLookAt(side.direction, side.up);
 		shader.setUniformMatrix("view", matrix);
 		
-		shader.setUniformf("sampleDelta", 0.025f); // TODO config
+		shader.setUniformf("sampleDelta", sampleDelta);
+		shader.setUniformi("u_rgbm", rgbm ? 1 : 0);
 		
+		Gdx.gl.glDisable(GL20.GL_BLEND);
 		boxMesh.render(shader, GL20.GL_TRIANGLES);
 	}
 }

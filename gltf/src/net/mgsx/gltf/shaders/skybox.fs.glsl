@@ -62,18 +62,30 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
     #endif //MANUAL_SRGB
 }
 
+vec4 RGBMtoLINEAR(vec4 rgbm) {
+    #ifdef USE_RGBM
+    return vec4(rgbm.rgb * rgbm.a * 255.0, 1.0);
+    #else
+    return SRGBtoLINEAR(rgbm);
+    #endif
+}
+
 varying vec3 v_dir;
 
 void main() {
 
 #ifdef ENV_LOD
-	vec4 color = SRGBtoLINEAR(textureCubeLodEXT(u_environmentCubemap, v_dir, u_lod));
+	vec4 color = RGBMtoLINEAR(textureCubeLodEXT(u_environmentCubemap, v_dir, u_lod));
 #else
-	vec4 color = SRGBtoLINEAR(textureCube(u_environmentCubemap, v_dir));
+	vec4 color = RGBMtoLINEAR(textureCube(u_environmentCubemap, v_dir));
 #endif
 
 #ifdef diffuseColorFlag
 	color *= u_diffuseColor;
+#endif
+#ifdef USE_RGBM
+	// Tone mapping for HDR skybox display (Reinhard)
+	color.rgb = color.rgb / (1.0 + color.rgb);
 #endif
 #ifdef GAMMA_CORRECTION
 	out_FragColor = vec4(pow(color.rgb, vec3(1.0/GAMMA_CORRECTION)), color.a);

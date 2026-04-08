@@ -20,13 +20,17 @@ import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 
 import net.mgsx.gltf.ibl.exceptions.FrameBufferError;
+import net.mgsx.gltf.ibl.io.EXRReader;
 import net.mgsx.gltf.ibl.io.RGBE;
 import net.mgsx.gltf.ibl.io.RGBE.Header;
 
 public class IBLComposer implements Disposable {
 
 	public Header hdrHeader;
-	private byte[] hdrData;
+	/** Float RGB pixel data (3 floats per pixel) for the loaded HDR/EXR image */
+	private float[] floatPixels;
+	private int imageWidth;
+	private int imageHeight;
 	private Pixmap pixmapRaw;
 	private Texture textureRaw;
 	private EnvironmentBaker environmentBaker;
@@ -51,10 +55,50 @@ public class IBLComposer implements Disposable {
 		try{
 			in = new DataInputStream(new BufferedInputStream(file.read()));
 			hdrHeader = RGBE.readHeader(in);
-			hdrData = new byte[hdrHeader.getWidth() * hdrHeader.getHeight() * 4];
+			byte[] hdrData = new byte[hdrHeader.getWidth() * hdrHeader.getHeight() * 4];
 			RGBE.readPixelsRawRLE(in, hdrData, 0, hdrHeader.getWidth(), hdrHeader.getHeight());
+			
+			// Convert RGBE bytes to float RGB
+			imageWidth = hdrHeader.getWidth();
+			imageHeight = hdrHeader.getHeight();
+			floatPixels = new float[imageWidth * imageHeight * 3];
+			float[] rgb = new float[3];
+			for(int i=0, p=0 ; i<hdrData.length ; i+=4, p+=3){
+				RGBE.rgbe2float(rgb, hdrData, i);
+				floatPixels[p] = rgb[0];
+				floatPixels[p+1] = rgb[1];
+				floatPixels[p+2] = rgb[2];
+			}
 		}finally{
 			if(in != null) in.close();
+		}
+	}
+
+	public void loadEXR(FileHandle file) throws IOException{
+		BufferedInputStream in = null;
+		try{
+			in = new BufferedInputStream(file.read());
+			EXRReader.EXRResult result = EXRReader.read(in);
+			imageWidth = result.width;
+			imageHeight = result.height;
+			floatPixels = result.pixels;
+			
+			// Create a synthetic header for UI display
+			hdrHeader = new Header(imageWidth, imageHeight);
+		}finally{
+			if(in != null) in.close();
+		}
+	}
+
+	/**
+	 * Load either HDR or EXR based on file extension.
+	 */
+	public void loadImage(FileHandle file) throws IOException {
+		String ext = file.extension().toLowerCase();
+		if("exr".equals(ext)){
+			loadEXR(file);
+		}else{
+			loadHDR(file);
 		}
 	}
 
@@ -73,91 +117,66 @@ public class IBLComposer implements Disposable {
 	
 	public Texture getHDRTexture() {
 		if(textureRaw == null){
-			// convert to pixmap applying optional exposure
-	        float [] pixels = new float[3];
-	        int imageWidth = hdrHeader.getWidth();
-	        int imageHeight = hdrHeader.getHeight();
-	        
-	        // XXX
-	        boolean classicMode = false;
-	        
-	        if(classicMode){
-	        	pixmapRaw = new Pixmap(imageWidth, imageHeight, Format.RGB888);
-	        	pixmapRaw.setBlending(Blending.None);
-	        	Color color = new Color();
-	        	for(int y=0 ; y<imageHeight ; y++){
-	        		for(int x=0 ; x<imageWidth ; x++){
-	        			int idx = (y*imageWidth+x)*4;
-	        			RGBE.rgbe2float(pixels, hdrData, idx); // TODO exposure should be done in this call for best precision.
-	        			/*
-	        			for(int i=0 ; i<3 ; i++){
-	        				pixels[i] = (float)Math.pow(pixels[i], 0.5f);
-	        			}
-	        			*/
-	        			color.set(pixels[0], pixels[1], pixels[2], 1);
-	        			pixmapRaw.drawPixel(x, y, Color.rgba8888(color));
-	        		}
-	        	}
-	        	textureRaw = new Texture(pixmapRaw);
-	        }
-	        else{
-	        	GLOnlyTextureData data = new GLOnlyTextureData(hdrHeader.getWidth(), hdrHeader.getHeight(), 0, GL30.GL_RGB32F, GL30.GL_RGB, GL30.GL_FLOAT);
-	        	textureRaw = new Texture(data);
-	        	FloatBuffer buffer = BufferUtils.newFloatBuffer(imageWidth * imageHeight * 3);
-	        	for(int i=0 ; i<hdrData.length ; i+=4){
-	        		RGBE.rgbe2float(pixels, hdrData, i);
-	        		buffer.put(pixels);
-	        	}
-	        	buffer.flip();
-	        	textureRaw.bind();
-	        	Gdx.gl.glTexImage2D(textureRaw.glTarget, 0, GL30.GL_RGB32F, hdrHeader.getWidth(), hdrHeader.getHeight(), 0, GL30.GL_RGB, GL30.GL_FLOAT, buffer);
-	        }
-			
+        	GLOnlyTextureData data = new GLOnlyTextureData(imageWidth, imageHeight, 0, GL30.GL_RGB32F, GL30.GL_RGB, GL30.GL_FLOAT);
+        	textureRaw = new Texture(data);
+        	FloatBuffer buffer = BufferUtils.newFloatBuffer(imageWidth * imageHeight * 3);
+        	buffer.put(floatPixels);
+        	buffer.flip();
+        	textureRaw.bind();
+        	Gdx.gl.glTexImage2D(textureRaw.glTarget, 0, GL30.GL_RGB32F, imageWidth, imageHeight, 0, GL30.GL_RGB, GL30.GL_FLOAT, buffer);
 		}
 		return textureRaw;
 	}
-	
-	public Cubemap getEnvMap(int size, float exposure){
+
+	public Cubemap getEnvMap(int size, float exposure, float gamma, boolean rgbm){
 		getHDRTexture();
-		return environmentBaker.getEnvMap(textureRaw, size, exposure);
+		return environmentBaker.getEnvMap(textureRaw, size, exposure, gamma, rgbm);
 	}
-	
-	public Array<Pixmap> getEnvMapPixmaps(int size, float exposure) {
+
+	public Array<Pixmap> getEnvMapPixmaps(int size, float exposure, float gamma, boolean rgbm) {
 		getHDRTexture();
-		return environmentBaker.createEnvMapPixmaps(textureRaw, size, exposure);
+		return environmentBaker.createEnvMapPixmaps(textureRaw, size, exposure, gamma, rgbm);
 	}
-	
-	public Cubemap getIrradianceMap(int size){
-		Cubemap cubemap = environmentBaker.getLastMap(); // getEnvMap(size, exposure);
+
+	public Cubemap getIrradianceMap(int size, float sampleDelta, boolean rgbm){
+		Cubemap cubemap = environmentBaker.getLastMap();
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
 		if(irradianceMap != null) irradianceMap.dispose();
 		try{
-			irradianceMap = irradianceBaker.createIrradiance(cubemap, size);
+			irradianceMap = irradianceBaker.createIrradiance(cubemap, size, sampleDelta, rgbm);
 		}catch(IllegalStateException e){
-			irradianceMap = new Cubemap(1, 1, 1, Format.RGB888);
 			throw new FrameBufferError(e);
 		}
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 		return irradianceMap;
 	}
-	
-	public Array<Pixmap> getIrradianceMapPixmaps(int size) {
+
+	public Array<Pixmap> getIrradianceMapPixmaps(int size, float sampleDelta, boolean rgbm) {
 		Cubemap cubemap = environmentBaker.getLastMap();
-		return irradianceBaker.createPixmaps(cubemap, size);
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+		Array<Pixmap> result = irradianceBaker.createPixmaps(cubemap, size, sampleDelta, rgbm);
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+		return result;
 	}
-	
-	public Array<Pixmap> getRadianceMapPixmaps(int size) {
+
+	public Array<Pixmap> getRadianceMapPixmaps(int size, int sampleCount, boolean rgbm) {
 		Cubemap cubemap = environmentBaker.getLastMap();
-		return radianceBaker.createPixmaps(cubemap, size);
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+		Array<Pixmap> result = radianceBaker.createPixmaps(cubemap, size, sampleCount, rgbm);
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+		return result;
 	}
-	
-	public Cubemap getRadianceMap(int size){
-		Cubemap cubemap = environmentBaker.getLastMap(); // getEnvMap(size, exposure);
+
+	public Cubemap getRadianceMap(int size, int sampleCount, boolean rgbm){
+		Cubemap cubemap = environmentBaker.getLastMap();
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
 		if(radianceMap != null) radianceMap.dispose();
 		try{
-			radianceMap = radianceBaker.createRadiance(cubemap, size);
+			radianceMap = radianceBaker.createRadiance(cubemap, size, sampleCount, rgbm);
 		}catch(IllegalStateException e){
-			radianceMap = new Cubemap(1, 1, 1, Format.RGB888);
 			throw new FrameBufferError(e);
 		}
+		if (rgbm) cubemap.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 		return radianceMap;
 	}
 

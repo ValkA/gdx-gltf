@@ -109,10 +109,18 @@ vec3 getIBLTransmissionContribution(PBRSurfaceInfo pbrSurface, vec3 n, vec3 v, v
 	float lod = pbrSurface.perceptualRoughness * u_mipmapScale;
 #endif
 
-
-    vec3 specularLight = SRGBtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lod)).rgb;
+#ifdef USE_RGBM
+    // Manual trilinear: decode RGBM per mip level before blending
+    float lodFloor = floor(lod);
+    float lodFrac = lod - lodFloor;
+    vec3 specA = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lodFloor)).rgb;
+    vec3 specB = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lodFloor + 1.0)).rgb;
+    vec3 specularLight = mix(specA, specB, lodFrac);
 #else
-    vec3 specularLight = SRGBtoLINEAR(textureCube(u_SpecularEnvSampler, specularDirection)).rgb;
+    vec3 specularLight = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lod)).rgb;
+#endif
+#else
+    vec3 specularLight = RGBMtoLINEAR(textureCube(u_SpecularEnvSampler, specularDirection)).rgb;
 #endif
 
 
@@ -139,7 +147,7 @@ PBRLightContribs getIBLContribution(PBRSurfaceInfo pbrSurface, vec3 n, vec3 refl
 #else
 	vec3 diffuseDirection = n;
 #endif
-    vec3 diffuseLight = SRGBtoLINEAR(textureCube(u_DiffuseEnvSampler, diffuseDirection)).rgb;
+    vec3 diffuseLight = RGBMtoLINEAR(textureCube(u_DiffuseEnvSampler, diffuseDirection)).rgb;
 
 #ifdef mirrorSpecularFlag
     float lod = (pbrSurface.perceptualRoughness * u_mirrorMipmapScale);
@@ -164,9 +172,17 @@ PBRLightContribs getIBLContribution(PBRSurfaceInfo pbrSurface, vec3 n, vec3 refl
 
 #ifdef USE_TEX_LOD
     float lod = (pbrSurface.perceptualRoughness * u_mipmapScale);
-    vec3 specularLight = SRGBtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lod)).rgb;
+#ifdef USE_RGBM
+    float lodFloor = floor(lod);
+    float lodFrac = lod - lodFloor;
+    vec3 specA = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lodFloor)).rgb;
+    vec3 specB = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lodFloor + 1.0)).rgb;
+    vec3 specularLight = mix(specA, specB, lodFrac);
 #else
-    vec3 specularLight = SRGBtoLINEAR(textureCube(u_SpecularEnvSampler, specularDirection)).rgb;
+    vec3 specularLight = RGBMtoLINEAR(textureCubeLodEXT(u_SpecularEnvSampler, specularDirection, lod)).rgb;
+#endif
+#else
+    vec3 specularLight = RGBMtoLINEAR(textureCube(u_SpecularEnvSampler, specularDirection)).rgb;
 #endif
 
 #endif

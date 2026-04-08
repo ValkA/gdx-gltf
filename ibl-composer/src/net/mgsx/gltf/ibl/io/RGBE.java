@@ -71,6 +71,11 @@ public class RGBE {
             this.height = height;
         }
 
+        /** Create a minimal header with just dimensions (for non-HDR sources like EXR) */
+        public Header(int width, int height) {
+            this(0, "EXR", 1.0f, 1.0f, width, height);
+        }
+
         public boolean isProgramTypeValid() {
             return ((valid & VALID_PROGRAMTYPE) != 0);
         }

@@ -64,6 +64,7 @@ public class SceneSkybox implements RenderableProvider, Updatable, Disposable {
 
 	private ShaderProvider shaderProvider;
 	private boolean ownShaderProvider;
+	private boolean rgbm = false;
 	
 	/**
 	 * Create a sky box with a default shader.
@@ -72,6 +73,13 @@ public class SceneSkybox implements RenderableProvider, Updatable, Disposable {
 	 */
 	public SceneSkybox(Cubemap cubemap){
 		this(cubemap, null);
+	}
+	
+	public SceneSkybox setRGBM(boolean rgbm){
+		this.rgbm = rgbm;
+		if(ownShaderProvider && shaderProvider != null) shaderProvider.dispose();
+		createShaderProvider(SRGB.NONE, null);
+		return this;
 	}
 
 	/**
@@ -144,6 +152,10 @@ public class SceneSkybox implements RenderableProvider, Updatable, Disposable {
 		
 		if(lodEnabled) {
 			prefix += "#define ENV_LOD\n";
+		}
+		
+		if(rgbm) {
+			prefix += "#define USE_RGBM\n";
 		}
 		
 		Config shaderConfig = new Config();

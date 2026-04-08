@@ -8,7 +8,11 @@ public class IBLSettings {
 	public int irrMapSize;
 	public int radMapSize;
 	public String hdrPath;
-	public float exposure;
+	public String modelPath;
+	public float exposure = 1.0f;
+	public float gamma = 1.0f;
+	public int radianceSampleCount = 8192;
+	public float irradianceSampleDelta = 0.00625f;
 	public float previewFov = 67;
 	public transient boolean envMapValid = true;
 	public transient boolean hdrValid = true;
@@ -28,6 +32,7 @@ public class IBLSettings {
 	public boolean brdfMapValid = true;
 	public boolean useDefaultBRDF = true;
 	public boolean brdf16 = false;
+	public boolean rgbm = false;
 	public float previewLightAzymuth = 180;
 	public float previewLightElevation = 60;
 	
@@ -53,7 +58,7 @@ public class IBLSettings {
 	public void invalidateBRDF() {
 		brdfMapValid = false;
 	}
-	private void invalidateEnvMap() {
+	public void invalidateEnvMap() {
 		envMapValid = false;
 	}
 
@@ -84,7 +89,18 @@ public class IBLSettings {
 
 	public void setExposure(float value) {
 		this.exposure = value;
-		invalidateEnvMap();
+	}
+
+	public void setGamma(float value) {
+		this.gamma = value;
+	}
+
+
+	public void setRGBM(boolean value) {
+		this.rgbm = value;
+		envMapValid = false;
+		if(autoIrradiance) invalidateIrradiance();
+		if(autoRadiance) invalidateRadiance();
 	}
 
 	public void invalidateIrradiance() {

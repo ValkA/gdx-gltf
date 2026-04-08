@@ -9,6 +9,16 @@ const float PI = 3.14159265359;
 
 uniform float sampleDelta;
 
+uniform int u_rgbm;
+
+vec3 sampleEnvironment(vec3 dir) {
+    vec4 color = texture(environmentMap, dir);
+    if (u_rgbm == 1) {
+        return color.rgb * color.a * 255.0;
+    }
+    return color.rgb;
+}
+
 void main()
 {
     // the sample direction equals the hemisphere's orientation
@@ -30,11 +40,18 @@ void main()
 	        // tangent space to world
 	        vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal;
 
-	        irradiance += texture(environmentMap, sampleVec).rgb * cos(theta) * sin(theta);
+	        irradiance += sampleEnvironment(sampleVec) * cos(theta) * sin(theta);
 	        nrSamples++;
 	    }
 	}
 	irradiance = PI * irradiance * (1.0 / float(nrSamples));
 
-    FragColor = vec4(irradiance, 1.0);
+    if (u_rgbm == 1) {
+        float maxRGB = max(max(irradiance.r, irradiance.g), max(irradiance.b, 1e-6));
+        float A = clamp(maxRGB / 255.0, 0.0, 1.0);
+        A = ceil(A * 255.0) / 255.0;
+        FragColor = vec4(irradiance / (A * 255.0), A);
+    } else {
+        FragColor = vec4(irradiance, 1.0);
+    }
 }

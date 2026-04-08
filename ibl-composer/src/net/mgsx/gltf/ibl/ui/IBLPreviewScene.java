@@ -2,6 +2,7 @@ package net.mgsx.gltf.ibl.ui;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Cubemap;
+import com.badlogic.gdx.graphics.g3d.attributes.CubemapAttribute;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -23,6 +24,8 @@ import net.mgsx.gltf.scene3d.lights.DirectionalLightEx;
 import net.mgsx.gltf.scene3d.scene.Scene;
 import net.mgsx.gltf.scene3d.scene.SceneManager;
 import net.mgsx.gltf.scene3d.scene.SceneSkybox;
+import net.mgsx.gltf.scene3d.shaders.PBRShaderConfig;
+import net.mgsx.gltf.scene3d.shaders.PBRShaderProvider;
 
 public class IBLPreviewScene {
 	public final CameraInputController cameraController;
@@ -37,6 +40,9 @@ public class IBLPreviewScene {
 	private PBRFloatAttribute metallic;
 	private PBRFloatAttribute roughness;
 	private Scene sphereScene;
+	private String lastModelPath;
+	private Scene customScene;
+	private net.mgsx.gltf.scene3d.scene.SceneAsset customAsset;
 	
 	public IBLPreviewScene(IBLSettings settings) {
 		this.settings = settings;
@@ -102,7 +108,55 @@ public class IBLPreviewScene {
 		viewport.update(width, height, false);
 	}
 	
+	private boolean lastRgbm = false;
+
 	public void update(float delta){
+		if (settings.modelPath != lastModelPath) {
+			lastModelPath = settings.modelPath;
+			if (customScene != null) {
+				sceneManager.removeScene(customScene);
+				customScene = null;
+			}
+			if (customAsset != null) {
+				customAsset.dispose();
+				customAsset = null;
+			}
+			if (settings.modelPath != null) {
+				sceneManager.removeScene(sphereScene);
+				try {
+					com.badlogic.gdx.files.FileHandle file = com.badlogic.gdx.Gdx.files.absolute(settings.modelPath);
+					if (settings.modelPath.endsWith(".glb")) {
+						customAsset = new net.mgsx.gltf.loaders.glb.GLBLoader().load(file);
+					} else {
+						customAsset = new net.mgsx.gltf.loaders.gltf.GLTFLoader().load(file);
+					}
+					customScene = new Scene(customAsset.scene);
+					sceneManager.addScene(customScene);
+				} catch (Exception e) {
+					e.printStackTrace();
+					settings.modelPath = null;
+					lastModelPath = null;
+					sceneManager.addScene(sphereScene);
+				}
+			} else {
+				sceneManager.addScene(sphereScene);
+			}
+		}
+
+		if(lastRgbm != settings.rgbm){
+			lastRgbm = settings.rgbm;
+			
+			PBRShaderConfig config = PBRShaderProvider.createDefaultConfig();
+			if(lastRgbm) config.prefix = "#define USE_RGBM\n";
+			sceneManager.setShaderProvider(PBRShaderProvider.createDefault(config));
+			
+			if(skybox != null){
+				Cubemap envMap = ((CubemapAttribute)skybox.environment.get(CubemapAttribute.EnvironmentMap)).textureDescription.texture;
+				skybox.dispose();
+				skybox = new SceneSkybox(envMap).setRGBM(lastRgbm);
+				sceneManager.setSkyBox(skybox);
+			}
+		}
 		// camera
 		cameraController.update();
 		camera.fieldOfView = settings.previewFov;
@@ -133,7 +187,7 @@ public class IBLPreviewScene {
 
 	public void setEnvMap(Cubemap envMap) {
 		if(skybox == null){
-			skybox = new SceneSkybox(envMap);
+			skybox = new SceneSkybox(envMap).setRGBM(settings.rgbm);
 			sceneManager.setSkyBox(skybox);
 		}else{
 			skybox.set(envMap);

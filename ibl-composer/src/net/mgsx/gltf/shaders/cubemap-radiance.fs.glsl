@@ -5,6 +5,7 @@ in vec3 localPos;
 
 uniform samplerCube environmentMap;
 uniform float roughness;
+uniform int u_rgbm;
 
 const float PI = 3.14159265359;
 
@@ -49,13 +50,23 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     return normalize(sampleVec);
 }
 
+vec3 sampleEnvironment(vec3 dir) {
+    vec4 color = texture(environmentMap, dir);
+    if (u_rgbm == 1) {
+        return color.rgb * color.a * 255.0;
+    }
+    return color.rgb;
+}
+
+uniform int u_sampleCount;
+
 void main()
 {
     vec3 N = normalize(localPos);
     vec3 R = N;
     vec3 V = R;
 
-    const uint SAMPLE_COUNT = 1024u;
+    uint SAMPLE_COUNT = uint(max(1, u_sampleCount));
     float totalWeight = 0.0;
     vec3 prefilteredColor = vec3(0.0);
     for(uint i = 0u; i < SAMPLE_COUNT; ++i)
@@ -67,11 +78,18 @@ void main()
         float NdotL = max(dot(N, L), 0.0);
         if(NdotL > 0.0)
         {
-            prefilteredColor += texture(environmentMap, L).rgb * NdotL;
+            prefilteredColor += sampleEnvironment(L) * NdotL;
             totalWeight      += NdotL;
         }
     }
     prefilteredColor = prefilteredColor / totalWeight;
 
-    FragColor = vec4(prefilteredColor, 1.0);
+    if (u_rgbm == 1) {
+        float maxRGB = max(max(prefilteredColor.r, prefilteredColor.g), max(prefilteredColor.b, 1e-6));
+        float A = clamp(maxRGB / 255.0, 0.0, 1.0);
+        A = ceil(A * 255.0) / 255.0;
+        FragColor = vec4(prefilteredColor / (A * 255.0), A);
+    } else {
+        FragColor = vec4(prefilteredColor, 1.0);
+    }
 }

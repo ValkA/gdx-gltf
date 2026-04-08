@@ -21,6 +21,14 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
     #endif //MANUAL_SRGB
 }
 
+vec4 RGBMtoLINEAR(vec4 rgbm) {
+    #ifdef USE_RGBM
+    return vec4(rgbm.rgb * rgbm.a * 255.0, 1.0);
+    #else
+    return SRGBtoLINEAR(rgbm);
+    #endif
+}
+
 // sRGB conversions for transmission source
 vec4 tsSRGBtoLINEAR(vec4 srgbIn)
 {
