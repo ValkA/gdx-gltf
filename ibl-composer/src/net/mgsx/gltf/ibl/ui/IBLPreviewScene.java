@@ -43,12 +43,14 @@ public class IBLPreviewScene {
 	private String lastModelPath;
 	private Scene customScene;
 	private net.mgsx.gltf.scene3d.scene.SceneAsset customAsset;
+	private boolean lastDisableModelLights = false;
+	private com.badlogic.gdx.utils.ObjectMap<com.badlogic.gdx.graphics.g3d.model.Node, com.badlogic.gdx.graphics.g3d.environment.BaseLight> storedLights = new com.badlogic.gdx.utils.ObjectMap<>();
 	
 	public IBLPreviewScene(IBLSettings settings) {
 		this.settings = settings;
 		camera = new PerspectiveCamera(settings.previewFov, 1, 1);
 		camera.near = .001f;
-		camera.far = 10f;
+		camera.far = 100f;
 		camera.position.set(1,0,0).scl(2f);
 		camera.up.set(Vector3.Y);
 		camera.lookAt(Vector3.Zero);
@@ -131,6 +133,11 @@ public class IBLPreviewScene {
 						customAsset = new net.mgsx.gltf.loaders.gltf.GLTFLoader().load(file);
 					}
 					customScene = new Scene(customAsset.scene);
+					storedLights.clear();
+					storedLights.putAll(customScene.lights);
+					if (settings.disableModelLights) {
+						customScene.lights.clear();
+					}
 					sceneManager.addScene(customScene);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -140,6 +147,23 @@ public class IBLPreviewScene {
 				}
 			} else {
 				sceneManager.addScene(sphereScene);
+			}
+		}
+
+		if (settings.disableModelLights != lastDisableModelLights) {
+			lastDisableModelLights = settings.disableModelLights;
+			if (customScene != null) {
+				if (settings.disableModelLights) {
+					for (com.badlogic.gdx.graphics.g3d.environment.BaseLight l : customScene.lights.values()) {
+						sceneManager.environment.remove(l);
+					}
+					customScene.lights.clear();
+				} else {
+					customScene.lights.putAll(storedLights);
+					for (com.badlogic.gdx.graphics.g3d.environment.BaseLight l : customScene.lights.values()) {
+						sceneManager.environment.add(l);
+					}
+				}
 			}
 		}
 

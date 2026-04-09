@@ -87,10 +87,12 @@ public class IBLComposerUI extends Table
 
 		menu.add("Exposure (EV)");
 		exposureSlider = new Slider(-10, 10, .25f, false, getSkin());
+		exposureSlider.setValue(0f);
 		menu.add(createSliderWithText(exposureSlider, val -> settings.setExposure(sliderToExposureEV(val)))).row();
 
 		menu.add("Gamma");
 		gammaSlider = new Slider(-1, 1, .01f, false, getSkin());
+		gammaSlider.setValue(0f);
 		menu.add(createSliderWithText(gammaSlider, val -> settings.setGamma(sliderToGamma(val)))).row();
 		
 		menu.add(title("Environment Map")).colspan(2).row();
@@ -150,7 +152,7 @@ public class IBLComposerUI extends Table
 		menu.add(title("UI")).colspan(2).row();
 		
 		menu.add("Scale");
-		scaleSlider = new Slider(1, 3, .5f, false, getSkin());
+		scaleSlider = new Slider(0.5f, 3f, .5f, false, getSkin());
 		scaleSlider.setValue(IBLComposerApp.defaultUIScale);
 		menu.add(UI.change(scaleSlider, event->{
 			if(!scaleSlider.isDragging()) fire(new UIScaleEvent(scaleSlider.getValue()));
@@ -159,6 +161,7 @@ public class IBLComposerUI extends Table
 		menu.add(title("Camera Preview")).colspan(2).row();
 		menu.add(UI.change(new TextButton("Load Model (.glb)", getSkin()), event->openModel())).row();
 		menu.add(UI.change(new TextButton("Default Sphere", getSkin()), event->settings.modelPath = null)).row();
+		menu.add(UI.toggle(getSkin(), "Disable Lights", settings.disableModelLights, value->settings.disableModelLights = value)).row();
 		
 		menu.add("FOV");
 		menu.add(fovSlider = UI.change(new Slider(0, 180, .01f, false, getSkin()), event->settings.previewFov = fovSlider.getValue())).row();
@@ -227,8 +230,6 @@ public class IBLComposerUI extends Table
 		UI.change(irrSize, event->settings.setIrradianceMapSize(irrSize.getSelected().size));
 		UI.change(radSize, event->settings.setRadianceMapSize(radSize.getSelected().size));
 		UI.change(brdfSize, event->settings.setBRDFMapSize(brdfSize.getSelected().size));
-		
-		UI.changeCompleted(exposureSlider, event->settings.invalidateMaps());
 		
 		if(!GLCapabilities.i.hasMemoryInfo){
 			memStats.setText("not available");
@@ -326,13 +327,18 @@ public class IBLComposerUI extends Table
 			onChange.accept(val);
 		});
 		
-		text.setTextFieldListener((textField, c) -> {
-			if(c == '\n' || c == '\r') {
-				try {
-					slider.setValue(Float.parseFloat(textField.getText()));
-				} catch (NumberFormatException e) {
+		text.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+				if(text.hasKeyboardFocus()) {
+					try {
+						float v = Float.parseFloat(text.getText());
+						if (Math.abs(v - slider.getValue()) > 0.0001f) {
+							slider.setValue(v);
+						}
+					} catch (NumberFormatException e) {
+					}
 				}
-				textField.getStage().setKeyboardFocus(null);
 			}
 		});
 		text.setText(String.format(java.util.Locale.US, "%.2f", slider.getValue()));

@@ -13,6 +13,7 @@ public class IBLSettings {
 	public float gamma = 1.0f;
 	public int radianceSampleCount = 8192;
 	public float irradianceSampleDelta = 0.00625f;
+	public boolean disableModelLights = false;
 	public float previewFov = 67;
 	public transient boolean envMapValid = true;
 	public transient boolean hdrValid = true;
@@ -25,14 +26,14 @@ public class IBLSettings {
 	public float previewLightIntensity = 1f;
 	public float previewLightHue = 0f;
 	public float previewLightSaturation = 0f;
-	public boolean autoIrradiance = true;
-	public boolean autoRadiance = true;
+	public boolean autoIrradiance = false;
+	public boolean autoRadiance = false;
 	public int brdfMapSize;
-	public boolean autoBRDF = true;
+	public boolean autoBRDF = false;
 	public boolean brdfMapValid = true;
 	public boolean useDefaultBRDF = true;
 	public boolean brdf16 = false;
-	public boolean rgbm = false;
+	public boolean rgbm = true;
 	public float previewLightAzymuth = 180;
 	public float previewLightElevation = 60;
 	

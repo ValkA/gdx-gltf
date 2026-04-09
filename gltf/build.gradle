@@ -16,7 +16,7 @@ sourceSets.test.resources.srcDirs = ["testRes"]
 
 task sourcesJar(type: Jar) {
     duplicatesStrategy = 'exclude'
-    classifier = 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
